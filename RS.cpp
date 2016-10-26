@@ -81,11 +81,13 @@ double ralpha =1 , rbeta = 1 , rgama = 1;
 
 //const int dim = 148000;
 vector<double>hquery;
+vector<double>hqueryZero;
 vector<double>hrel;
 vector<double>hnonRel;
 vector<double>diagonal;
 
-//float *hquery ,*hrel ,*hnonRel;
+double sumOfRelScores = 0 ,sumOfNonRelScores = 0;
+
 
 int main(int argc, char * argv[])
 {
@@ -137,12 +139,10 @@ int main(int argc, char * argv[])
 
     Index *ind = IndexManager::openIndex(indexPath);// Your own path to index
 
-
     const int dim = ind->termCountUnique()+1;//one for OOV
-    hquery.assign(dim , 0.0);
-    hrel.assign(dim , 0.0);
-    hnonRel.assign(dim , 0.0);
     diagonal.assign(dim , 0.0);
+    for(int i = 1 ; i <= ind->termCountUnique() ; i++)
+        diagonal[i] = log10( (ind->docCount() + 1) / (double)ind->docCount(i) );
 
 
     loadJudgment();
@@ -186,7 +186,7 @@ void computeRSMethods(Index* ind)
 
         IndexedRealVector results;
 
-        out<<"threshold: "<<myMethod->getThreshold();
+        out<<"threshold: "<<myMethod->getThreshold()<<endl;
         qs->startDocIteration();
         TextQuery *q;
 
@@ -196,10 +196,21 @@ void computeRSMethods(Index* ind)
 
         double relRetCounter = 0 , retCounter = 0 , relCounter = 0;
         vector<double> queriesPrecision,queriesRecall;
+
+        const int dim = ind->termCountUnique()+1;//one for OOV
         while(qs->hasMore())
         {
             myMethod->setThreshold(thresh);
 
+            hqueryZero.assign(dim , 0.0);
+            hquery.assign(dim , 0.0);
+            hrel.assign(dim , 0.0);
+            hnonRel.assign(dim , 0.0);
+
+
+
+            sumOfNonRelScores = 0;
+            sumOfRelScores = 0;
             judgRelNonRel.clear();
             judgScores.clear();
             judgThrs.clear();
@@ -240,6 +251,7 @@ void computeRSMethods(Index* ind)
 
                 if(sim >=  myMethod->getThreshold() )
                 {
+
                     judgScores.push_back(sim);
                     judgThrs.push_back(myMethod->getThreshold());
 
@@ -251,18 +263,20 @@ void computeRSMethods(Index* ind)
                     {
                         if(relDocs[ii] == did )
                         {
+                            sumOfRelScores += sim;
                             judgRelNonRel.push_back(true);
                             isRel = true;
                             newNonRel = false;
                             newRel = true;
                             relJudgDocs.push_back(docID);
                             //relSumScores+=sim;
-                            //numberOfShownNonRelDocs = 0;
+                             //numberOfShownNonRelDocs = 0;
                             break;
                         }
                     }
                     if(!isRel)
                     {
+                        sumOfNonRelScores += sim;
                         judgRelNonRel.push_back(false);
                         nonRelJudgDocs.push_back(docID);
                         newNonRel = true;
@@ -280,8 +294,14 @@ void computeRSMethods(Index* ind)
 
                     //if (results.size() % 15 == 0 )/************************************/
                     //parametersStimation(relJudgDocs , nonRelJudgDocs);
-                    //myMethod->updateProfile(*((TextQueryRep *)(qr)),relJudgDocs , nonRelJudgDocs );
 
+                    if (results.size() % 15 == 0 )
+                    {
+                        if(relJudgDocs.size() != 0)
+                            myMethod->updateThreshold(*((TextQueryRep *)(qr)) ,relJudgDocs ,nonRelJudgDocs ,3 );
+
+                        myMethod->updateProfile(*((TextQueryRep *)(qr)), relJudgDocs , nonRelJudgDocs, isRel );
+                    }
                 }
                 else
                 {
@@ -329,14 +349,20 @@ void computeRSMethods(Index* ind)
 
         out<<"Avg Precision: "<<avgPrec<<endl;
         out<<"Avg Recall: "<<avgRecall<<endl;
-        out<<"F-measure: "<<(2*avgPrec*avgRecall)/(avgPrec+avgRecall)<<endl<<endl;
+        if(avgPrec == 0 || avgPrec == 0)
+            out<<"F-measure: 0"<<endl<<endl;
+        else
+            out<<"F-measure: "<<(2*avgPrec*avgRecall)/(avgPrec+avgRecall)<<endl<<endl;
 
         double pp = relRetCounter/retCounter;
         double dd = relRetCounter/relCounter;
         out<<"rel_ret: "<<relRetCounter<<" ret: "<<retCounter<<" rels: "<<relCounter<<endl;
         out<<"old_Avg Precision: "<<pp<<endl;
         out<<"old_Avg Recall: "<<dd<<endl;
-        out<<"old_F-measure: "<<(2*pp*dd)/(pp+dd)<<endl<<endl;
+        if(pp == 0 || dd == 0)
+            out<<"old_F-measure: 0"<<endl<<endl;
+        else
+            out<<"old_F-measure: "<<(2*pp*dd)/(pp+dd)<<endl<<endl;
 
 
 #if RETMODE == 1 && FBMODE == 1
@@ -479,7 +505,7 @@ void loadJudgment()
     ifstream infile;
     infile.open (judgmentPath.c_str());
 
-    const int trainCnt = 2;
+    int trainCnt = 2;
     string line;
     while (getline(infile,line))
     {
@@ -508,9 +534,12 @@ void loadJudgment()
     map<string,vector<string> >::iterator cit;
     for ( cit = queryRelDocsMap.begin() ; cit != queryRelDocsMap.end() ; ++cit )
     {
-        for(int i = 0 ; i < trainCnt ; i++)
-            queryRelTrainedDocsMap[cit->first].push_back(cit->second.at(i));
+        vector<string>temp;
 
+        for(int i = 0 ; i < std::min(trainCnt , (int)cit->second.size() ) ; i++)
+            temp.push_back(cit->second[i]) ;
+
+        queryRelTrainedDocsMap.insert(make_pair<string, vector<string> >(cit->first , temp ) );
     }
 
     infile.close();

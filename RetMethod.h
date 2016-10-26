@@ -599,7 +599,7 @@ public:
                                  const lemur::api::DocIDSet &relDocs, const lemur::api::DocIDSet &nonRelDocs);
 
     virtual void updateProfile(lemur::api::TextQueryRep &origRep,
-                               vector<int> relJudglDoc ,vector<int> nonReljudgDoc);
+                               vector<int> relJudglDoc , vector<int> nonReljudgDoc, bool isRel);
     virtual void updateThreshold(lemur::api::TextQueryRep &origRep,
                                  vector<int> relJudglDoc ,vector<int> nonReljudgDoc ,int mode/*,double relSumScores , double nonRelSumScores*/);
     virtual float computeProfDocSim(lemur::api::TextQueryRep *origRep,int docID ,vector<int>relDocs ,vector<int>nonRelDocs , bool newNonRel,bool newRel);
@@ -845,8 +845,6 @@ protected:
                            const lemur::api::DocIDSet & relDocs);
     void computeRM4FBModel(QueryModel &origRep,
                            const lemur::api::DocIDSet & relDocs);
-    void computeKUNFBModel(QueryModel &origRep,
-                           const lemur::api::DocIDSet &relDocs, const lemur::api::DocIDSet &nonRelDocs);
 
 
     //@}
