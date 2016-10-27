@@ -39,6 +39,7 @@ extern vector<bool>judgRelNonRel;//true: rel
 extern double sumOfRelScores;
 extern double sumOfNonRelScores;
 extern double expectedRatioRel ;
+extern bool endFilteringForQuery;
 
 #define NEPER 2.71828182845904523536
 
@@ -396,11 +397,12 @@ void lemur::retrieval::RetMethod::updateProfile(lemur::api::TextQueryRep &origRe
                                                 vector<int> relJudgDoc ,vector<int> nonRelJudgDoc ,bool isRel)
 {
 
-    cerr<<"Bprof \n";
+    //cerr<<"\nBprof \n";
     double l = 0.6;//pow(0.5,1) ;
     vector<double> newDoc(ind.termCountUnique()+1 , 0.0);
     if(isRel)
     {
+        //cerr<<"isRel updProf "<<relJudgDoc.size()<<"\n";
         int docid = relJudgDoc.at(relJudgDoc.size()-1);//= ind.document(relJudgDoc.at(relJudgDoc.size()-1) );
         TermInfoList *tList = ind.termInfoList( docid ) ;
 
@@ -419,7 +421,11 @@ void lemur::retrieval::RetMethod::updateProfile(lemur::api::TextQueryRep &origRe
 
     }else//if nonRel
     {
+        //cerr<<"\nisNotRel updProf ";
         int docid = nonRelJudgDoc.at(nonRelJudgDoc.size()-1 );
+
+        //cerr<<nonRelJudgDoc.size()<<"\n";
+
         TermInfoList *tList = ind.termInfoList( docid ) ;
 
         tList->startIteration();
@@ -433,11 +439,14 @@ void lemur::retrieval::RetMethod::updateProfile(lemur::api::TextQueryRep &origRe
         delete tList;
 
         for(int i = 1 ; i < ind.termCountUnique()+1 ; i++)
+        {
+            //cerr<<hquery[i]<<" ";
             hquery[i] = hqueryZero[i] + (hrel[i] *l ) / (l*relJudgDoc.size() ) - ( (l*hnonRel[i]+newDoc[i]) / (l*nonRelJudgDoc.size()+1 ) );
-
+            //cerr<<hquery[i]<<" "<<endl;
+        }
 
     }
-    cerr<<"Eprof \n";
+    //cerr<<"Eprof \n";
 }
 
 /*
@@ -481,10 +490,26 @@ void lemur::retrieval::RetMethod::updateThreshold(lemur::api::TextQueryRep &orig
     thresholdUpdatingMethod = updatingThresholdMode;
 
 
-    if(thresholdUpdatingMethod == 3)//MLE equ(10) KUN paper //consider c1 & c2 =1
+    if(thresholdUpdatingMethod == 3)//MLE equ(10) KUN paper //consider c1=1 & c2 =2
     {
-        cerr<<"Bthr \n";
-        cerr<< sumOfRelScores << relJudgDoc.size()<<endl;
+
+#if 1
+        double mu = sumOfRelScores / (double)(relJudgDoc.size());
+        double negMu = sumOfNonRelScores / (double)(nonReljudgDoc.size());
+        double crThrr = (mu+negMu)/2;
+        setThreshold(crThrr);
+        cerr << "new thr: "<<crThrr<<"\n\n";
+#endif
+#if 0
+        double mu = sumOfRelScores / (double)(relJudgDoc.size());
+        double negMu = sumOfNonRelScores / (double)(nonReljudgDoc.size());
+        double crThrr = (mu+2*negMu)/3;
+        setThreshold(crThrr);
+        cerr << "new thr: "<<crThrr<<"\n\n";
+#endif
+#if 0
+        //cerr<<"Bthr \n";
+        //cerr<< sumOfRelScores <<" " <<relJudgDoc.size()<<endl;
         double mu = sumOfRelScores / (double)(relJudgDoc.size());
 
         double var = 0.0 ;
@@ -497,20 +522,29 @@ void lemur::retrieval::RetMethod::updateThreshold(lemur::api::TextQueryRep &orig
 
 
         double a = 1.0 / var;
-        double b = mu / var;
+        double b = (mu / var)+2.0;
         double c = ( (mu*mu)/var) - 2*log((2*expectedRatioRel)/(std::sqrt(2*NEPER*var)) );
 
         double hDelta = b*b - a*c ;
 
+        double crThr=0;
         if(hDelta >=0 )
-            setThreshold( (b - hDelta) / a ) ;
+        {
+            crThr = (b - std::sqrt(hDelta)) / a;
+            //cerr << "new thr: "<<crThr<<"\n\n";
+            setThreshold( crThr ) ;
+        }
         else
+        {
+            cerr << "(hDelta<0) new thr: "<<1000<<"\n\n";
             setThreshold(1000);//FIX ME???????????
+            endFilteringForQuery = true;
+        }
+        //cerr<<getThreshold()<<endl;
 
-        cerr<<getThreshold()<<endl;
-
-        cerr<<"mu "<<mu<<" var "<<var<<" a "<<a<<" b "<<b<<" c "<<c<<" hdelta "<<hDelta<<endl;
-        cerr<<"Ethr \n";
+        cerr<<"mu "<<mu<<" var "<<var<<" a "<<a<<" b "<<b<<" c "<<c<<" hdelta "<<hDelta<<" crThr "<<crThr<<endl;
+        //cerr<<"Ethr \n";
+#endif
     }
     else if(thresholdUpdatingMethod == 0)//no updating
         return;
@@ -552,7 +586,7 @@ double  lemur::retrieval::RetMethod::ltuDocWeighting(int termID , int docID  )
         double avgUniqueTermPerDoc = ind.termCountUnique()/ ind.docCount();
         double U = 1.0 / (0.8 +0.2*( (double)(hfv.size()) / avgUniqueTermPerDoc ) );
 
-        cerr<<"size ==0" << hfv.size()<<endl;
+        //cerr<<"size hfv " << hfv.size()<<endl;
 
         return L*T*U;
     }
@@ -644,7 +678,9 @@ void lemur::retrieval::RetMethod::initQueryVec(string qid, TextQueryRep *textQR)
     {
         hqueryZero[i] = hqueryZero[i] * diagonal[i];
         hquery[i] = hqueryZero[i];
+        //cerr<<hquery[i]<<" ";
     }
+    //cerr<<"\n\n\n\n";
 }
 float lemur::retrieval::RetMethod::computeProfDocSim(lemur::api::TextQueryRep *textQR,int docID ,
                                                      vector<int> relJudgDoc ,vector<int> nonReljudgDoc , bool newNonRel , bool newRel)
@@ -669,7 +705,7 @@ float lemur::retrieval::RetMethod::computeProfDocSim(lemur::api::TextQueryRep *t
     for(int i = 1 ; i <= totalTermNumber ; i++)
         score += hquery[i]*diagonal[i]*tempDoc[i];
 
-    cerr<<score<<endl;
+    //cerr<<score<<endl;
 
     return score;
 

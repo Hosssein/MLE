@@ -88,6 +88,7 @@ vector<double>diagonal;
 
 double sumOfRelScores = 0 ,sumOfNonRelScores = 0;
 
+bool endFilteringForQuery = false;
 
 int main(int argc, char * argv[])
 {
@@ -142,8 +143,10 @@ int main(int argc, char * argv[])
     const int dim = ind->termCountUnique()+1;//one for OOV
     diagonal.assign(dim , 0.0);
     for(int i = 1 ; i <= ind->termCountUnique() ; i++)
-        diagonal[i] = log10( (ind->docCount() + 1) / (double)ind->docCount(i) );
-
+    {
+        //cerr<<(double)ind->docCount(i)<<" ";
+        diagonal[i] = log10( (ind->docCount() + 1.0) / (double)ind->docCount(i) );
+    }
 
     loadJudgment();
     expectedRatioRel /= ind->docCount();
@@ -163,8 +166,9 @@ void computeRSMethods(Index* ind)
 
 
     string outFilename;
+    string thrUpdatingName = "SD";//MEAN1,MEAN2
     if(DATASET == 0)
-        outFilename =outputFileNameHM+"_infile_MLE";
+        outFilename =outputFileNameHM+"_infile_MLE_"+thrUpdatingName;
     else if (DATASET == 1)
         outFilename =outputFileNameHM+"_ohsu";
 
@@ -181,7 +185,7 @@ void computeRSMethods(Index* ind)
     {
         myMethod->setThreshold(thresh);
 
-        resultPath = resultFileNameHM + ".res" ;//+numToStr( myMethod->getThreshold() )+"_c1:"+numToStr(c1)+"_c2:"+numToStr(c2)+"_#showNonRel:"+numToStr(numOfShownNonRel)+"_#notShownDoc:"+numToStr(numOfnotShownDoc)+".res";
+        resultPath = thrUpdatingName +"_"+resultFileNameHM +"_thr:"+numToStr( myMethod->getThreshold() )+ ".res" ;//+numToStr( myMethod->getThreshold() )+"_c1:"+numToStr(c1)+"_c2:"+numToStr(c2)+"_#showNonRel:"+numToStr(numOfShownNonRel)+"_#notShownDoc:"+numToStr(numOfnotShownDoc)+".res";
 
 
         IndexedRealVector results;
@@ -199,9 +203,11 @@ void computeRSMethods(Index* ind)
 
         const int dim = ind->termCountUnique()+1;//one for OOV
         while(qs->hasMore())
-        {
+        {            
             myMethod->setThreshold(thresh);
 
+            endFilteringForQuery = false;
+            bool recievedRel = false;
             hqueryZero.assign(dim , 0.0);
             hquery.assign(dim , 0.0);
             hrel.assign(dim , 0.0);
@@ -217,6 +223,8 @@ void computeRSMethods(Index* ind)
 
             int numberOfNotShownDocs = 0,numberOfShownNonRelDocs = 0;
 
+            int nn = 0 , rr =1;
+
             vector<int> relJudgDocs,nonRelJudgDocs;
             results.clear();
 
@@ -226,7 +234,9 @@ void computeRSMethods(Index* ind)
             QueryRep *qr = myMethod->computeQueryRep(*q);
             cout<<"qid: "<<q->id()<<endl;
 
-            myMethod->initQueryVec( q->id() , (TextQueryRep *)(qr) );
+            myMethod->initQueryVec( q->id() , (TextQueryRep *)(qr) );/*********************************/
+            //return;
+
 
             bool newNonRel = false , newRel = false;
             vector<string> relDocs;
@@ -241,7 +251,6 @@ void computeRSMethods(Index* ind)
 
             //for(int docID = 1 ; docID < ind->docCount() ; docID++){ //compute for all doc
             vector <int> docids = queryDocList(ind,((TextQueryRep *)(qr)));
-
 
             for(int i = 0 ; i<docids.size(); i++) //compute for docs which have queryTerm
             {
@@ -263,6 +272,7 @@ void computeRSMethods(Index* ind)
                     {
                         if(relDocs[ii] == did )
                         {
+                            rr++;
                             sumOfRelScores += sim;
                             judgRelNonRel.push_back(true);
                             isRel = true;
@@ -270,12 +280,13 @@ void computeRSMethods(Index* ind)
                             newRel = true;
                             relJudgDocs.push_back(docID);
                             //relSumScores+=sim;
-                             //numberOfShownNonRelDocs = 0;
+                            //numberOfShownNonRelDocs = 0;
                             break;
                         }
                     }
                     if(!isRel)
                     {
+                        nn++;
                         sumOfNonRelScores += sim;
                         judgRelNonRel.push_back(false);
                         nonRelJudgDocs.push_back(docID);
@@ -295,13 +306,19 @@ void computeRSMethods(Index* ind)
                     //if (results.size() % 15 == 0 )/************************************/
                     //parametersStimation(relJudgDocs , nonRelJudgDocs);
 
-                    if (results.size() % 15 == 0 )
+                    //if (results.size() % 15 == 0 )
+                    if(rr % 6 == 0)
                     {
-                        if(relJudgDocs.size() != 0)
-                            myMethod->updateThreshold(*((TextQueryRep *)(qr)) ,relJudgDocs ,nonRelJudgDocs ,3 );
-
-                        myMethod->updateProfile(*((TextQueryRep *)(qr)), relJudgDocs , nonRelJudgDocs, isRel );
+                        recievedRel = true;
+                        rr =1;
+                        myMethod->updateThreshold(*((TextQueryRep *)(qr)) ,relJudgDocs ,nonRelJudgDocs ,3 );
+                        //myMethod->updateProfile(*((TextQueryRep *)(qr)), relJudgDocs , nonRelJudgDocs, isRel );
                     }
+                    if(recievedRel)//FIX ME if the first 6 doc is not nonRel!!!!!!!!!!!!!
+                        myMethod->updateProfile(*((TextQueryRep *)(qr)), relJudgDocs , nonRelJudgDocs, isRel );
+
+                    if(endFilteringForQuery)
+                        break;
                 }
                 else
                 {
