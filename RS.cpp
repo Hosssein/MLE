@@ -100,7 +100,7 @@ int main(int argc, char * argv[])
         if(DATASET == 0)//infile
         {
             judgmentPath = "/home/iis/Desktop/Edu/thesis/Data/INFILE/qrels_en";
-            indexPath= "/home/iis/Desktop/Edu/thesis/index/infile/en/index.key";
+            indexPath ="/home/iis/Desktop/Edu/thesis/index/infile/en_Stemmed_withoutSW/index.key";
             queryPath = "/home/iis/Desktop/Edu/thesis/Data/INFILE/q_en_titleKeyword_en.stemmed.xml";
         }else if(DATASET == 1)//ohsu
         {
