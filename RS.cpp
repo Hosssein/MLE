@@ -185,8 +185,9 @@ void computeRSMethods(Index* ind)
     {
         myMethod->setThreshold(thresh);
 
-        resultPath = thrUpdatingName +"_"+resultFileNameHM +"_thr:"+numToStr( myMethod->getThreshold() )+ ".res" ;//+numToStr( myMethod->getThreshold() )+"_c1:"+numToStr(c1)+"_c2:"+numToStr(c2)+"_#showNonRel:"+numToStr(numOfShownNonRel)+"_#notShownDoc:"+numToStr(numOfnotShownDoc)+".res";
+        resultPath = resultFileNameHM +"_thr:"+numToStr( myMethod->getThreshold() )+ "_" +thrUpdatingName + ".res" ;//+numToStr( myMethod->getThreshold() )+"_c1:"+numToStr(c1)+"_c2:"+numToStr(c2)+"_#showNonRel:"+numToStr(numOfShownNonRel)+"_#notShownDoc:"+numToStr(numOfnotShownDoc)+".res";
 
+        //cerr<<resultPath<<"\n\n\n";
 
         IndexedRealVector results;
 

@@ -493,7 +493,7 @@ void lemur::retrieval::RetMethod::updateThreshold(lemur::api::TextQueryRep &orig
     if(thresholdUpdatingMethod == 3)//MLE equ(10) KUN paper //consider c1=1 & c2 =2
     {
 
-#if 1
+#if 0
         double mu = sumOfRelScores / (double)(relJudgDoc.size());
         double negMu = sumOfNonRelScores / (double)(nonReljudgDoc.size());
         double crThrr = (mu+negMu)/2;
@@ -507,7 +507,7 @@ void lemur::retrieval::RetMethod::updateThreshold(lemur::api::TextQueryRep &orig
         setThreshold(crThrr);
         cerr << "new thr: "<<crThrr<<"\n\n";
 #endif
-#if 0
+#if 1
         //cerr<<"Bthr \n";
         //cerr<< sumOfRelScores <<" " <<relJudgDoc.size()<<endl;
         double mu = sumOfRelScores / (double)(relJudgDoc.size());
@@ -542,7 +542,7 @@ void lemur::retrieval::RetMethod::updateThreshold(lemur::api::TextQueryRep &orig
         }
         //cerr<<getThreshold()<<endl;
 
-        cerr<<"mu "<<mu<<" var "<<var<<" a "<<a<<" b "<<b<<" c "<<c<<" hdelta "<<hDelta<<" crThr "<<crThr<<endl;
+        //cerr<<"mu "<<mu<<" var "<<var<<" a "<<a<<" b "<<b<<" c "<<c<<" hdelta "<<hDelta<<" crThr "<<crThr<<endl;
         //cerr<<"Ethr \n";
 #endif
     }
@@ -631,7 +631,7 @@ void lemur::retrieval::RetMethod::initQueryVec(string qid, TextQueryRep *textQR)
                 //delete info;
             }
             delete tList;
-        }        
+        }
 
         for(int i = 1 ; i <= ind.termCountUnique() ; i++)
             hqueryZero[i] /= (double)mm;
